@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Result Portal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        input {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 0.5rem 1.5rem;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #1557b0;
+        }
+
+        .cgpa-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .semester-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .semester-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .semester-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .error {
+            color: #d32f2f;
+            text-align: center;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Student Result Portal</h1>
+        </div>
+        
+        <div class="search-box">
+            <div class="input-group">
+                <input type="text" id="studentId" placeholder="Enter Student ID (e.g., 222-34-753)" />
+                <button onclick="fetchAllResults()">Get Results</button>
+            </div>
+            <div id="error" class="error"></div>
+        </div>
+
+        <div id="cgpaCard" class="cgpa-card" style="display: none;">
+            <h2>Overall CGPA</h2>
+            <h3 id="totalCgpa"></h3>
+        </div>
+
+        <div id="semesterResults" class="semester-results"></div>
+    </div>
+
+    <script>
+        const semesters = [{"semesterId":"244","semesterYear":2024,"semesterName":"Short"},{"semesterId":"243","semesterYear":2024,"semesterName":"Fall"},{"semesterId":"242","semesterYear":2024,"semesterName":"Summer"},{"semesterId":"241","semesterYear":2024,"semesterName":"Spring"},{"semesterId":"233","semesterYear":2023,"semesterName":"Fall"},{"semesterId":"232","semesterYear":2023,"semesterName":"Summer"},{"semesterId":"231","semesterYear":2023,"semesterName":"Spring"},{"semesterId":"223","semesterYear":2022,"semesterName":"Fall"},{"semesterId":"222","semesterYear":2022,"semesterName":"Summer"},{"semesterId":"221","semesterYear":2022,"semesterName":"Spring"}];
+
+        async function fetchResult(semesterId, studentId) {
+            try {
+                const response = await axios.get(`http://software.diu.edu.bd:8006/result?grecaptcha=&semesterId=${semesterId}&studentId=${studentId}`);
+                return response.data;
+            } catch (error) {
+                console.error('Error fetching result:', error);
+                return null;
+            }
+        }
+
+        async function fetchAllResults() {
+            const studentId = document.getElementById('studentId').value;
+            const errorDiv = document.getElementById('error');
+            const cgpaCard = document.getElementById('cgpaCard');
+            const semesterResults = document.getElementById('semesterResults');
+
+            if (!studentId) {
+                errorDiv.textContent = 'Please enter a student ID';
+                return;
+            }
+
+            errorDiv.textContent = '';
+            cgpaCard.style.display = 'none';
+            semesterResults.innerHTML = '<div class="loading">Loading results...</div>';
+
+            let totalGPA = 0;
+            let validSemesters = 0;
+            let resultsHTML = '';
+
+            for (const semester of semesters) {
+                const result = await fetchResult(semester.semesterId, studentId);
+                
+                if (result && result.cgpa) {
+                    totalGPA += parseFloat(result.cgpa);
+                    validSemesters++;
+
+                    resultsHTML += `
+                        <div class="semester-card">
+                            <div class="semester-header">
+                                <h3>${semester.semesterName} ${semester.semesterYear}</h3>
+                                <div>CGPA: ${result.cgpa}</div>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Course</th>
+                                        <th>Grade</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${result.courses.map(course => `
+                                        <tr>
+                                            <td>${course.courseName}</td>
+                                            <td>${course.grade}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+            }
+
+            if (validSemesters > 0) {
+                const finalCGPA = (totalGPA / validSemesters).toFixed(2);
+                document.getElementById('totalCgpa').textContent = finalCGPA;
+                cgpaCard.style.display = 'block';
+            }
+
+            semesterResults.innerHTML = resultsHTML || '<div class="error">No results found</div>';
+        }
+    </script>
+</body>
+</html>

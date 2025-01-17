@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Viewer</title>
+    <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            color: #555;
+            font-size: 16px;
+            display: none;
+        }
+
+        .error {
+            color: red;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .card {
+            padding: 15px;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            text-align: left;
+        }
+
+        .card span {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+        }
+
+        .loading-text {
+            color: #007bff;
+            font-size: 18px;
+            font-weight: 500;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Get Student Result</h1>
+        <input type="text" id="studentId" placeholder="Enter Student ID" />
+        <button onclick="getResult()">Fetch Result</button>
+        <div class="card" id="studentInfo" style="display: none;"></div>
+        <div class="result" id="result"></div>
+    </div>
+
+    <div class="loading-overlay" id="loading">
+        <dotlottie-player 
+            src="https://lottie.host/6d56832e-82f3-4f74-b90b-eb90667b6d53/kBQGAbGasK.lottie" 
+            background="transparent" 
+            speed="1" 
+            style="width: 300px; height: 300px" 
+            loop 
+            autoplay
+        ></dotlottie-player>
+        <div class="loading-text">Fetching Results...</div>
+    </div>
+
+    <script>
+        async function getResult() {
+            const studentId = document.getElementById('studentId').value;
+            const resultDiv = document.getElementById('result');
+            const loadingDiv = document.getElementById('loading');
+            const studentInfoDiv = document.getElementById('studentInfo');
+
+            if (!studentId) {
+                resultDiv.style.display = 'block';
+                resultDiv.textContent = 'Please enter a valid Student ID.';
+                resultDiv.classList.add('error');
+                loadingDiv.style.display = 'none';
+                return;
+            }
+
+            resultDiv.style.display = 'none';
+            studentInfoDiv.style.display = 'none';
+            resultDiv.classList.remove('error');
+            loadingDiv.style.display = 'flex';
+
+            try {
+                const response = await fetch(`http://software.diu.edu.bd:8006/result?grecaptcha=&semesterId=243&studentId=${studentId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch result');
+                }
+                const data = await response.json();
+                loadingDiv.style.display = 'none';
+                resultDiv.style.display = 'block';
+
+                if (data.length > 0) {
+                    const totalCgpa = data[0].cgpa;
+                    studentInfoDiv.style.display = 'block';
+                    studentInfoDiv.innerHTML = `<span><strong>Student ID:</strong> ${studentId}</span>
+                                                <span><strong>Total CGPA:</strong> ${totalCgpa}</span>`;
+
+                    let tableHTML = '<table><tr><th>Course ID</th><th>Course Title</th><th>Credit</th><th>Grade</th><th>Point</th></tr>';
+                    data.forEach(course => {
+                        tableHTML += `<tr>
+                            <td>${course.customCourseId}</td>
+                            <td>${course.courseTitle}</td>
+                            <td>${course.totalCredit}</td>
+                            <td>${course.gradeLetter}</td>
+                            <td>${course.pointEquivalent}</td>
+                        </tr>`;
+                    });
+                    tableHTML += '</table>';
+                    resultDiv.innerHTML = tableHTML;
+                } else {
+                    resultDiv.textContent = 'No results found.';
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                resultDiv.style.display = 'block';
+                resultDiv.textContent = 'Error fetching result. Please try again.';
+                resultDiv.classList.add('error');
+            }
+        }
+    </script>
+</body>
+</html>
